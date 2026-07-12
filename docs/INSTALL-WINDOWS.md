@@ -34,9 +34,11 @@ Click the small **More info** link, then the **Run anyway** button.
 
 ### Step 4: Click through the wizard
 
-Click **Next**, leave "Start LocalFlow automatically when I sign in"
-checked, click **Next**, then **Install**, then **Finish** with
-"Launch LocalFlow now" checked.
+Click **Next** on each page (the suggested folder locations are fine).
+When you reach the page with the checkbox "Start LocalFlow automatically
+when I sign in", leave it checked and click **Next**. Then click
+**Install**, and on the last page leave "Launch LocalFlow now" checked
+and click **Finish**.
 
 ✅ A small window appears saying it is downloading the speech model
 (about 1.6 GB, one time, roughly 10 minutes on typical Wi-Fi).
