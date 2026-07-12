@@ -62,10 +62,12 @@ Test dictation box, or follow Part 3 below.
 
 ### Step 4: Microphone
 
-Click "Open Settings" next to Microphone in the setup window. When macOS
-asks, click **Allow**.
+Click "Open Settings" next to Microphone in the setup window. If macOS
+shows a pop-up asking for microphone access, click **Allow**. Otherwise
+System Settings opens: turn ON the switch next to the Python entry in the
+Microphone list.
 
-![Microphone permission](img/mic-permission.png)
+![Microphone setting](img/mic-permission.png)
 
 ✅ The Microphone row in the setup window turns to a green checkmark.
 
