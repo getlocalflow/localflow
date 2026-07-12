@@ -1,0 +1,5 @@
+{
+  "raw": ["windowsterminal.exe", "cmd.exe", "powershell.exe", "code.exe", "pycharm64.exe"],
+  "formal": ["outlook.exe", "olk.exe"],
+  "casual": ["slack.exe", "discord.exe", "whatsapp.exe", "teams.exe", "ms-teams.exe"]
+}
