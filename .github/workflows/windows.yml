@@ -1,0 +1,23 @@
+name: windows
+on:
+  push:
+    branches: [windows-port, main]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-windows.txt pytest
+      - name: Unit tests
+        run: python -m pytest tests/ -v --ignore=tests/test_hud_manual.py
+      - name: Import smoke (windows package)
+        if: hashFiles('windows/localflow_win.py') != ''
+        run: python -c "import windows.win_hotkey, windows.win_paste, windows.win_tray, windows.statemachine_win, windows.win_hud, windows.win_onboarding, windows.localflow_win; print('windows imports OK')"
