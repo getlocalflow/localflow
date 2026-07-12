@@ -3,6 +3,11 @@
 The hook runs on its own thread with a message pump. Modifier state is read
 with GetAsyncKeyState at event time (Logi-style atomic combos arrive fine).
 Import of this module must be safe on any OS; only start() touches Win32.
+
+CONTRACT: on_trigger/on_esc run synchronously inside the system-wide LL hook
+(300ms OS timeout; every app's keystrokes wait on them). They must only
+schedule work (e.g. root.after) and return within a few ms - never block,
+never do I/O.
 """
 import logging
 import sys
@@ -56,12 +61,24 @@ class HotkeyListener:
         kernel32 = ctypes.windll.kernel32
 
         HOOKPROC = ctypes.WINFUNCTYPE(
-            ctypes.c_longlong, ctypes.c_int, wt.WPARAM, wt.LPARAM)
+            ctypes.c_ssize_t, ctypes.c_int, wt.WPARAM, wt.LPARAM)
+
+        LRESULT = ctypes.c_ssize_t
+        user32.SetWindowsHookExW.restype = ctypes.c_void_p
+        user32.SetWindowsHookExW.argtypes = [ctypes.c_int, HOOKPROC,
+                                             wt.HINSTANCE, wt.DWORD]
+        user32.CallNextHookEx.restype = LRESULT
+        user32.CallNextHookEx.argtypes = [ctypes.c_void_p, ctypes.c_int,
+                                          wt.WPARAM, wt.LPARAM]
+        user32.UnhookWindowsHookEx.restype = wt.BOOL
+        user32.UnhookWindowsHookEx.argtypes = [ctypes.c_void_p]
+        user32.GetMessageW.restype = ctypes.c_int
+        kernel32.GetCurrentThreadId.restype = wt.DWORD
 
         class KBDLLHOOKSTRUCT(ctypes.Structure):
             _fields_ = [("vkCode", wt.DWORD), ("scanCode", wt.DWORD),
                         ("flags", wt.DWORD), ("time", wt.DWORD),
-                        ("dwExtraInfo", ctypes.POINTER(ctypes.c_ulong))]
+                        ("dwExtraInfo", ctypes.c_void_p)]
 
         def proc(n_code, w_param, l_param):
             if n_code == 0 and w_param in (WM_KEYDOWN, WM_SYSKEYDOWN):
@@ -69,7 +86,8 @@ class HotkeyListener:
                 vk = kb.vkCode
                 try:
                     if vk == VK_ESCAPE:
-                        self.on_esc()
+                        if not self._mods_down(user32):
+                            self.on_esc()
                     else:
                         mods = self._mods_down(user32)
                         if combo_matches(vk, mods, cfg.trigger_vk,
@@ -86,12 +104,14 @@ class HotkeyListener:
         self._started.set()
         if not hook:
             log.error("SetWindowsHookExW failed")
+            self._thread_id = None
             return
         msg = wt.MSG()
         while user32.GetMessageW(ctypes.byref(msg), None, 0, 0) > 0:
             user32.TranslateMessage(ctypes.byref(msg))
             user32.DispatchMessageW(ctypes.byref(msg))
-        user32.UnhookWindowsHookEx(hook)
+        if not user32.UnhookWindowsHookEx(hook):
+            log.warning("UnhookWindowsHookEx failed")
 
     def start(self):
         if sys.platform != "win32":
