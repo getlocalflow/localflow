@@ -21,8 +21,11 @@ def already_running() -> bool:
     if sys.platform != "win32":
         return False
     import ctypes
-    ctypes.windll.kernel32.CreateMutexW(None, False, "Local\\LocalFlowSingleton")
-    return ctypes.windll.kernel32.GetLastError() == 183  # ERROR_ALREADY_EXISTS
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32.CreateMutexW.restype = ctypes.c_void_p
+    kernel32.CreateMutexW.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_wchar_p]
+    kernel32.CreateMutexW(None, False, "Local\\LocalFlowSingleton")
+    return ctypes.get_last_error() == 183  # ERROR_ALREADY_EXISTS
 
 
 def main():
