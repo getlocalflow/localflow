@@ -19,7 +19,9 @@ paste this line, and press Return:
 Then follow the setup window. Full walkthrough with screenshots:
 [docs/INSTALL-MAC.md](docs/INSTALL-MAC.md)
 
-**Windows**: coming soon (in progress).
+**Windows** (Windows 10/11, beta): download
+[LocalFlow-Setup.exe](https://github.com/getlocalflow/localflow/releases/latest)
+and follow [docs/INSTALL-WINDOWS.md](docs/INSTALL-WINDOWS.md).
 
 ## How to use
 
