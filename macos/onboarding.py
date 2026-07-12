@@ -16,7 +16,7 @@ from AppKit import (
 from ApplicationServices import AXIsProcessTrusted
 from Foundation import NSTimer
 
-from config import cfg
+from core.config import cfg
 
 log = logging.getLogger("localflow.onboarding")
 

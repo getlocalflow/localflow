@@ -2,7 +2,7 @@
 import tomllib
 from pathlib import Path
 
-ROOT = Path(__file__).parent
+ROOT = Path(__file__).resolve().parent.parent
 CONFIG_PATH = ROOT / "config.toml"
 HISTORY_DIR = ROOT / "history"
 SOUNDS_DIR = ROOT / "sounds"

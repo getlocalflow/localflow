@@ -8,10 +8,10 @@ import rumps
 from AppKit import NSWorkspace, NSObject
 from Foundation import NSTimer
 
-import pipeline
+from core import pipeline
 from pathlib import Path
 
-from config import cfg, DICTIONARY_PATH, HISTORY_DIR, ROOT
+from core.config import cfg, DICTIONARY_PATH, HISTORY_DIR, ROOT
 
 log = logging.getLogger("localflow.menubar")
 
@@ -180,7 +180,7 @@ class LocalFlowApp(rumps.App):
         subprocess.Popen(["open", str(HISTORY_DIR)])
 
     def on_perms(self, _):
-        from onboarding import show_permissions_window
+        from macos.onboarding import show_permissions_window
         show_permissions_window(self.daemon)
 
     def on_login(self, sender):
@@ -209,7 +209,7 @@ class LocalFlowApp(rumps.App):
         )
 
     def on_setup(self, _):
-        from onboarding import show_onboarding
+        from macos.onboarding import show_onboarding
         show_onboarding(self.daemon)
 
     def on_quit(self, _):

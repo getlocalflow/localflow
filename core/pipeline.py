@@ -10,7 +10,7 @@ from pathlib import Path
 
 import requests
 
-from config import cfg, HISTORY_DIR, REPLACEMENTS_PATH, APP_MODES_PATH, TIMINGS_LOG, LOG_DIR
+from core.config import cfg, HISTORY_DIR, REPLACEMENTS_PATH, APP_MODES_PATH, TIMINGS_LOG, LOG_DIR
 
 log = logging.getLogger("localflow.pipeline")
 
