@@ -75,6 +75,7 @@ def daemon(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "HISTORY_DIR", tmp_path / "history")
     monkeypatch.setattr(pipeline, "HISTORY_DIR", tmp_path / "history")
     monkeypatch.setattr(pipeline, "TIMINGS_LOG", tmp_path / "timings.log")
+    monkeypatch.setattr(pipeline, "LOG_DIR", tmp_path / "logs")
     hud, paster = FakeHUD(), FakePaster()
     d = WinDaemon(FakeRoot(), hud, paster, sounds=None,
                   session_factory=lambda: FakeSession(),
@@ -123,3 +124,32 @@ def test_paused_ignores_trigger(daemon):
     d.toggle_pause()
     d.on_trigger(shift=False)
     assert d.state == "paused"
+
+
+def test_queued_trigger_starts_after_processing(daemon):
+    d, hud, paster = daemon
+    d._set_state("processing")
+    d.on_trigger(shift=False)
+    assert d._queued
+    d._maybe_dequeue()
+    assert d.state == "recording"
+
+
+def test_pause_blocks_queued_dictation(daemon):
+    d, hud, paster = daemon
+    d._set_state("processing")
+    d.on_trigger(shift=False)
+    d.toggle_pause()
+    d._maybe_dequeue()
+    assert d.state == "paused"
+    assert not d.paused or d.state != "recording"
+
+
+def test_sounds_toggle_uses_live_config(daemon, monkeypatch):
+    d, hud, paster = daemon
+    from core.config import cfg
+    calls = []
+    monkeypatch.setattr(cfg, "set", lambda k, v: calls.append((k, v)))
+    before = d.sounds_on
+    d.toggle_sounds()
+    assert calls and calls[0][0] == "sounds" and calls[0][1] == (not before)

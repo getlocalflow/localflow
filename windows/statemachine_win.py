@@ -19,11 +19,8 @@ IDLE, RECORDING, PROCESSING, PAUSED = "idle", "recording", "processing", "paused
 
 
 class WinSounds:
-    def __init__(self):
-        self.enabled = bool(cfg.sounds)
-
     def play(self, name):
-        if not self.enabled:
+        if not cfg.sounds:   # live config read: single source of truth
             return
         try:
             import winsound
@@ -47,7 +44,6 @@ class WinDaemon:
         self.on_state_change = None   # main() wires this to tray.set_state
         self.paused = False
         self.raw_by_default = bool(cfg.raw_by_default)
-        self.sounds_on = bool(cfg.sounds)
         self.session = None
         self.raw_mode = False
         self.status_note = ""
@@ -58,6 +54,7 @@ class WinDaemon:
         self._debounce_s = cfg.debounce_ms / 1000.0
         self._app_at_start = (None, None)
         self._queued = False
+        self._queued_shift = False
         hud.on_click = lambda: self.ui(self._hud_clicked)
 
     # ---- infrastructure ----
@@ -83,8 +80,12 @@ class WinDaemon:
         return foreground_app()
 
     def _play(self, name):
-        if self.sounds and self.sounds_on:
-            self.sounds.play(name)
+        if self.sounds:
+            self.sounds.play(name)   # WinSounds.play gates on cfg.sounds itself
+
+    @property
+    def sounds_on(self):
+        return bool(cfg.sounds)
 
     def status_text(self):
         return {IDLE: "LocalFlow - Ready", RECORDING: "Recording...",
@@ -104,6 +105,9 @@ class WinDaemon:
         elif self.state == RECORDING:
             self.ui(self._stop_recording, False)
         elif self.state == PROCESSING:
+            self._queued_shift = shift
+            # deliberate unmarshalled write from the hook thread: atomic bool
+            # under the GIL; must be immediately visible to _maybe_dequeue
             self._queued = True
 
     def on_esc(self):
@@ -118,11 +122,14 @@ class WinDaemon:
 
     # ---- transitions (tk main thread) ----
     def _start_recording(self, shift):
+        if self.paused:
+            return
         if self.state != IDLE:
             return
         self.session = self._session_factory()
         self.raw_mode = shift != self.raw_by_default
         if not self.session.start():
+            self._play("error")
             self.hud.show_error("No microphone found")
             self.status_note = "no microphone"
             return
@@ -132,18 +139,19 @@ class WinDaemon:
         self._app_at_start = self._foreground()
         self._play("start")
         self.hud.show_recording()
-        self._tick()
+        self._tick(self.session)
 
-    def _tick(self):
-        if self.state != RECORDING:
+    def _tick(self, session):
+        # generation guard: a stale tick loop from a previous session dies here
+        if self.state != RECORDING or session is not self.session:
             return
         dur = time.monotonic() - self._t_start
         try:
-            self.session.tick()
-            snap = self.session.rec.snapshot() if hasattr(self.session.rec, "snapshot") else None
+            session.tick()
+            snap = session.rec.snapshot() if hasattr(session.rec, "snapshot") else None
             if snap is not None and len(snap):
                 import numpy as np
-                tail = snap[-int(self.session.rec.sr * 0.15):]
+                tail = snap[-int(session.rec.sr * 0.15):]
                 self.hud.set_level(float(np.sqrt((tail ** 2).mean())))
         except Exception:
             log.exception("tick")
@@ -151,7 +159,7 @@ class WinDaemon:
         if dur >= cfg.max_recording_s:
             self._stop_recording(auto=True)
             return
-        self.root.after(120, self._tick)
+        self.root.after(120, self._tick, session)
 
     def _stop_recording(self, auto):
         if self.state != RECORDING:
@@ -168,7 +176,14 @@ class WinDaemon:
         if self.state != RECORDING:
             return
         try:
-            self.session.stop_capture()
+            # never lose words: keep audio for long, non-silent recordings
+            audio = self.session.stop_capture()
+            if len(audio) / self.session.rec.sr > 5.0 and \
+                    not is_silent(audio, cfg.silence_rms):
+                entry = pipeline.new_history_entry()
+                save_wav(entry / "audio.wav", audio, self.session.rec.sr)
+                pipeline.write_history_text(entry, None, None,
+                                            {"result": "cancelled"})
         except Exception:
             log.exception("cancel stop")
         self._set_state(IDLE)
@@ -217,12 +232,12 @@ class WinDaemon:
 
     # ---- finish paths (tk main thread) ----
     def _finish_silent(self):
-        self._set_state(IDLE)
+        self._set_state(PAUSED if self.paused else IDLE)
         self.hud.hide()
         self._maybe_dequeue()
 
     def _finish_error(self, msg):
-        self._set_state(IDLE)
+        self._set_state(PAUSED if self.paused else IDLE)
         self._play("error")
         self.hud.show_error(msg)
         self.status_note = msg
@@ -231,7 +246,7 @@ class WinDaemon:
     def _finish_paste(self, text, kind, t_asr, meta):
         self.last_text = text
         ok = self.paster.paste(text)
-        self._set_state(IDLE)
+        self._set_state(PAUSED if self.paused else IDLE)
         self._play("done" if ok else "error")
         words = len(text.split())
         if ok:
@@ -244,9 +259,13 @@ class WinDaemon:
         self._maybe_dequeue()
 
     def _maybe_dequeue(self):
-        if self._queued:
-            self._queued = False
-            self.ui(self._start_recording, False)
+        if not self._queued:
+            return
+        self._queued = False        # clear before the paused check so a stale
+        if self.paused:             # queue flag never survives a pause
+            return
+        self._set_state(IDLE)       # dequeue path: processing -> idle -> recording
+        self.ui(self._start_recording, self._queued_shift)
 
     # ---- menu actions (tk main thread via ui()) ----
     def toggle_pause(self):
@@ -272,12 +291,11 @@ class WinDaemon:
                 audio = np.frombuffer(w.readframes(w.getnframes()),
                                       np.int16).astype(np.float32) / 32767
             session = self._session_factory()
-            session.flushed = len(audio)
             from core.audio import resample_to_16k
             a16 = resample_to_16k(audio, sr)
             out, done = session.asr.transcribe_async(a16, session.base_prompt)
             if done.wait(cfg.asr_watchdog_s) and out and out[0]:
-                final, kind = pipeline.process(out[0], "default",
+                final, kind = pipeline.process(out[0], "clean",
                                                load_dictionary_prompt())
                 self.ui(self._finish_paste, final, kind, 0.0,
                         {"result": "retry_ok"})
@@ -292,8 +310,7 @@ class WinDaemon:
         cfg.set("raw_by_default", self.raw_by_default)
 
     def toggle_sounds(self):
-        self.sounds_on = not self.sounds_on
-        cfg.set("sounds", self.sounds_on)
+        cfg.set("sounds", not bool(cfg.sounds))
 
     def open_dictionary(self):
         import os
