@@ -1,0 +1,13 @@
+# LocalFlow dictionary. One name or term per line.
+# These bias transcription toward correct spellings.
+# Add a line whenever you catch a mis-transcription. Comments start with #.
+# Examples (replace with your own people, places, and jargon):
+
+# People
+Priya Raghunathan
+Deshawn
+# Places
+Puyallup
+# Work terms
+Kubernetes
+OKRs

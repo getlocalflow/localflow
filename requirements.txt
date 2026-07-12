@@ -1,0 +1,10 @@
+faster-whisper>=1.2
+sounddevice>=0.5
+pynput>=1.7
+rumps>=0.4
+numpy
+requests
+pyobjc-framework-Cocoa
+pyobjc-framework-Quartz
+pyobjc-framework-AVFoundation
+pyobjc-framework-ApplicationServices

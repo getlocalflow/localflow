@@ -1,0 +1,21 @@
+{
+  "raw": [
+    "com.apple.Terminal",
+    "com.googlecode.iterm2",
+    "dev.warp.Warp",
+    "com.microsoft.VSCode",
+    "com.apple.dt.Xcode",
+    "com.todesktop.230313mzl4w4u92",
+    "com.mitchellh.ghostty"
+  ],
+  "formal": [
+    "com.apple.mail",
+    "com.microsoft.Outlook"
+  ],
+  "casual": [
+    "com.tinyspeck.slackmacgap",
+    "com.apple.MobileSMS",
+    "com.hnc.Discord",
+    "net.whatsapp.WhatsApp"
+  ]
+}
