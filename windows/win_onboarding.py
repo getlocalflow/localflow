@@ -38,6 +38,7 @@ def ensure_model(root) -> bool:
     import tkinter as tk
     from tkinter import ttk
     win = tk.Toplevel(root)
+    win.protocol("WM_DELETE_WINDOW", lambda: None)  # closing mid-download would orphan the flow
     win.title("LocalFlow - one-time setup")
     win.geometry("420x140")
     win.attributes("-topmost", True)
@@ -65,8 +66,11 @@ def ensure_model(root) -> bool:
     while t.is_alive():
         root.update()          # keeps the progress window responsive
         time.sleep(0.05)
-    bar.stop()
-    win.destroy()
+    try:
+        bar.stop()
+        win.destroy()
+    except tk.TclError:
+        pass
     if not result.get("ok"):
         from tkinter import messagebox
         messagebox.showerror(
