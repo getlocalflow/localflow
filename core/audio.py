@@ -15,7 +15,7 @@ from pathlib import Path
 import numpy as np
 import sounddevice as sd
 
-from config import cfg, DICTIONARY_PATH
+from core.config import cfg, DICTIONARY_PATH
 
 log = logging.getLogger("localflow.audio")
 

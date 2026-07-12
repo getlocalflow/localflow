@@ -17,10 +17,10 @@ from AppKit import NSSound
 from PyObjCTools import AppHelper
 import Quartz
 
-import pipeline
-from audio import ASRWorker, ChunkedSession, is_silent, save_wav, load_dictionary_prompt
-from config import cfg, SOUNDS_DIR
-from paste import Paster, frontmost_app
+from core import pipeline
+from core.audio import ASRWorker, ChunkedSession, is_silent, save_wav, load_dictionary_prompt
+from core.config import cfg, SOUNDS_DIR
+from macos.paste import Paster, frontmost_app
 
 log = logging.getLogger("localflow.state")
 
@@ -412,7 +412,7 @@ class Daemon:
             sr = w.getframerate()
             audio = np.frombuffer(w.readframes(w.getnframes()),
                                   np.int16).astype(np.float32) / 32767.0
-        from audio import resample_to_16k
+        from core.audio import resample_to_16k
         out, done = self.asr.transcribe_async(
             resample_to_16k(audio, sr), load_dictionary_prompt())
         def _wait():

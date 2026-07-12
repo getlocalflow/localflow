@@ -1,15 +1,26 @@
 """LocalFlow configuration: defaults + config.toml overlay (hot-reloadable)."""
+import os
+import sys
 import tomllib
 from pathlib import Path
 
-ROOT = Path(__file__).parent
-CONFIG_PATH = ROOT / "config.toml"
-HISTORY_DIR = ROOT / "history"
+ROOT = Path(__file__).resolve().parent.parent   # repo root
+IS_WINDOWS = sys.platform == "win32"
+
+if IS_WINDOWS:
+    DATA_DIR = Path(os.environ.get("APPDATA", str(Path.home()))) / "LocalFlow"
+    LOG_DIR = DATA_DIR / "logs"
+    APP_MODES_PATH = ROOT / "windows" / "app_modes.windows.json"
+else:
+    DATA_DIR = ROOT
+    LOG_DIR = Path.home() / "Library" / "Logs" / "LocalFlow"
+    APP_MODES_PATH = ROOT / "app_modes.json"
+
+CONFIG_PATH = DATA_DIR / "config.toml"
+HISTORY_DIR = DATA_DIR / "history"
+DICTIONARY_PATH = DATA_DIR / "dictionary.txt"
+REPLACEMENTS_PATH = DATA_DIR / "replacements.json"
 SOUNDS_DIR = ROOT / "sounds"
-DICTIONARY_PATH = ROOT / "dictionary.txt"
-REPLACEMENTS_PATH = ROOT / "replacements.json"
-APP_MODES_PATH = ROOT / "app_modes.json"
-LOG_DIR = Path.home() / "Library" / "Logs" / "LocalFlow"
 TIMINGS_LOG = LOG_DIR / "timings.log"
 DAEMON_LOG = LOG_DIR / "localflow.log"
 
@@ -31,8 +42,8 @@ DEFAULTS = {
     "asr_watchdog_s": 20.0,
     # trigger: mouse button mapped in Logi Options+ to a key combo.
     # Default ⌃⌥⌘D (vk 2 = the D key). Raw mode = hold Shift while pressing.
-    "trigger_vk": 2,
-    "trigger_mods": ["ctrl", "alt", "cmd"],
+    "trigger_vk": 0x44 if IS_WINDOWS else 2,   # D key (Win VK / mac keycode)
+    "trigger_mods": ["ctrl", "alt"] if IS_WINDOWS else ["ctrl", "alt", "cmd"],
     # behavior
     "debounce_ms": 250,
     "too_short_ms": 700,

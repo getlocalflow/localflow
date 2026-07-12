@@ -14,7 +14,7 @@ die()  { printf '\n\033[1;31mProblem: %s\033[0m\n%s\n' "$1" "${2:-}"; exit 1; }
 
 step "Checking your Mac"
 [ "$(uname)" = "Darwin" ] || die "This installer is for macOS only." \
-  "LocalFlow for Windows is coming soon. Watch the project page for releases."
+  "On Windows, download LocalFlow-Setup.exe from https://github.com/getlocalflow/localflow/releases and see docs/INSTALL-WINDOWS.md."
 macver=$(sw_vers -productVersion)
 [ "${macver%%.*}" -ge 13 ] || die "LocalFlow needs macOS 13 (Ventura) or newer." \
   "This Mac is on macOS $macver."

@@ -1,0 +1,79 @@
+name: windows
+on:
+  push:
+    branches: [windows-port, main]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-windows.txt pytest
+      - name: Unit tests
+        run: python -m pytest tests/ -v --ignore=tests/test_hud_manual.py
+      - name: Import smoke (windows package)
+        if: hashFiles('windows/localflow_win.py') != ''
+        run: python -c "import windows.win_hotkey, windows.win_paste, windows.win_tray, windows.statemachine_win, windows.win_hud, windows.win_onboarding, windows.localflow_win; print('windows imports OK')"
+
+  build:
+    runs-on: windows-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-windows.txt pyinstaller
+      - name: Generate icon
+        run: python windows-installer/make_icon.py windows-installer/localflow.ico
+      - name: PyInstaller
+        run: |
+          cd windows-installer
+          pyinstaller --noconfirm localflow-win.spec
+          cd ..
+          Get-ChildItem -Recurse windows-installer/dist/LocalFlow | Select-Object -First 25 FullName
+      - name: Verify data layout (core.config.ROOT resolution)
+        run: |
+          $base = "windows-installer/dist/LocalFlow"
+          $expected = @(
+            "$base/LocalFlow.exe",
+            "$base/_internal/sounds/start.wav",
+            "$base/_internal/sounds/stop.wav",
+            "$base/_internal/sounds/done.wav",
+            "$base/_internal/sounds/cancel.wav",
+            "$base/_internal/sounds/error.wav",
+            "$base/_internal/windows/app_modes.windows.json",
+            "$base/_internal/dictionary.sample.txt",
+            "$base/_internal/replacements.sample.json",
+            "$base/_internal/config.sample.toml"
+          )
+          $missing = @()
+          foreach ($p in $expected) {
+            if (-not (Test-Path $p)) { $missing += $p }
+          }
+          if ($missing.Count -gt 0) {
+            Write-Host "MISSING expected data files (core.config.ROOT will not resolve them):"
+            $missing | ForEach-Object { Write-Host "  $_" }
+            Write-Host "Full built tree:"
+            Get-ChildItem -Recurse $base | Select-Object FullName
+            exit 1
+          }
+          Write-Host "All expected data files present at ROOT-relative paths (_internal/...)."
+      - name: Inno Setup
+        run: |
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" windows-installer\installer.iss
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: LocalFlow-Setup
+          path: windows-installer/Output/LocalFlow-Setup.exe
