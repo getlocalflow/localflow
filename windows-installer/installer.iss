@@ -1,6 +1,6 @@
 [Setup]
 AppName=LocalFlow
-AppVersion=1.0.0
+AppVersion=1.0.0-beta
 AppPublisher=LocalFlow
 DefaultDirName={autopf}\LocalFlow
 DefaultGroupName=LocalFlow
