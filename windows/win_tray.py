@@ -22,6 +22,7 @@ class Tray:
         self.daemon = daemon
         self.on_quit = on_quit
         self.icon = None
+        self._icons = {k: _dot_icon(rgb) for k, rgb in STATE_COLOR.items()}
 
     def _menu(self):
         import pystray
@@ -49,13 +50,13 @@ class Tray:
 
     def start(self):
         import pystray
-        self.icon = pystray.Icon("LocalFlow", _dot_icon(STATE_COLOR["idle"]),
+        self.icon = pystray.Icon("LocalFlow", self._icons["idle"],
                                  "LocalFlow", self._menu())
         self.icon.run_detached()
 
     def set_state(self, state):
         if self.icon:
-            self.icon.icon = _dot_icon(STATE_COLOR.get(state, STATE_COLOR["idle"]))
+            self.icon.icon = self._icons.get(state, self._icons["idle"])
 
     def stop(self):
         if self.icon:
