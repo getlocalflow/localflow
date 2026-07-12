@@ -17,10 +17,37 @@ def build_key_sequence():
     return [(VK_CONTROL, False), (VK_V, False), (VK_V, True), (VK_CONTROL, True)]
 
 
+def _declare(user32, kernel32):
+    """Declare argtypes/restype for the Win32 functions we use. Without these,
+    ctypes truncates pointer-sized return values to 32 bits on 64-bit Windows,
+    corrupting handles and breaking paste on real hardware."""
+    import ctypes
+    kernel32.GlobalAlloc.restype = ctypes.c_void_p
+    kernel32.GlobalAlloc.argtypes = [ctypes.c_uint, ctypes.c_size_t]
+    kernel32.GlobalLock.restype = ctypes.c_void_p
+    kernel32.GlobalLock.argtypes = [ctypes.c_void_p]
+    kernel32.GlobalUnlock.argtypes = [ctypes.c_void_p]
+    kernel32.GlobalFree.argtypes = [ctypes.c_void_p]
+    user32.GetClipboardData.restype = ctypes.c_void_p
+    user32.GetClipboardData.argtypes = [ctypes.c_uint]
+    user32.SetClipboardData.restype = ctypes.c_void_p
+    user32.SetClipboardData.argtypes = [ctypes.c_uint, ctypes.c_void_p]
+
+
+def _open_clipboard(user32):
+    """OpenClipboard with retry: clipboard managers/AV hold it transiently."""
+    for _ in range(10):
+        if user32.OpenClipboard(None):
+            return True
+        time.sleep(0.01)
+    return False
+
+
 def _clipboard_get():
     import ctypes
     user32, kernel32 = ctypes.windll.user32, ctypes.windll.kernel32
-    if not user32.OpenClipboard(None):
+    _declare(user32, kernel32)
+    if not _open_clipboard(user32):
         return None
     try:
         h = user32.GetClipboardData(CF_UNICODETEXT)
@@ -38,22 +65,36 @@ def _clipboard_get():
 def _clipboard_set(text):
     import ctypes
     user32, kernel32 = ctypes.windll.user32, ctypes.windll.kernel32
+    _declare(user32, kernel32)
     GMEM_MOVEABLE = 0x0002
     data = text + "\0"
     size = len(data) * ctypes.sizeof(ctypes.c_wchar)
     h = kernel32.GlobalAlloc(GMEM_MOVEABLE, size)
+    if not h:
+        return False
     ptr = kernel32.GlobalLock(h)
+    if not ptr:
+        kernel32.GlobalFree(h)
+        return False
     ctypes.memmove(ptr, ctypes.create_unicode_buffer(data), size)
     kernel32.GlobalUnlock(h)
-    if not user32.OpenClipboard(None):
+    if not _open_clipboard(user32):
+        kernel32.GlobalFree(h)
         return False
     try:
         user32.EmptyClipboard()
-        return bool(user32.SetClipboardData(CF_UNICODETEXT, h))
+        if not user32.SetClipboardData(CF_UNICODETEXT, h):
+            # Per MSDN: on failure the caller retains ownership and must free;
+            # on success the system owns the handle and we must NOT free it.
+            kernel32.GlobalFree(h)
+            return False
+        return True
     finally:
         user32.CloseClipboard()
 
 
+# Runs on the tk main thread; 4x10ms sleeps = 40ms, acceptable; move
+# off-thread if the latency budget tightens.
 def _send_ctrl_v():
     import ctypes
     user32 = ctypes.windll.user32
@@ -84,6 +125,11 @@ def foreground_app():
 
 
 class WinPaster:
+    def __init__(self):
+        # Generation counter: a stale restore thread from a rapid earlier
+        # paste must never overwrite a newer paste's clipboard state.
+        self._gen = 0
+
     def copy_only(self, text) -> bool:
         try:
             return _clipboard_set(text)
@@ -91,8 +137,12 @@ class WinPaster:
             log.exception("copy_only")
             return False
 
+    # UIPI: synthetic input into elevated windows is silently dropped;
+    # undetectable here - guide's troubleshooting covers it.
     def paste(self, text) -> bool:
         try:
+            self._gen += 1
+            gen = self._gen
             prior = _clipboard_get()
             if not _clipboard_set(text):
                 return False
@@ -101,7 +151,7 @@ class WinPaster:
                 def restore():
                     time.sleep(RESTORE_DELAY_S)
                     try:
-                        if _clipboard_get() == text:
+                        if self._gen == gen and _clipboard_get() == text:
                             _clipboard_set(prior)
                     except Exception:
                         log.exception("clipboard restore")
