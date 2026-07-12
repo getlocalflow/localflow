@@ -43,7 +43,7 @@ single thumb click. See the install guide for a walkthrough.
 - `dictionary.txt` teaches it names and jargon it should spell correctly.
 - `replacements.json` force-fixes words it keeps getting wrong.
 - `history/` keeps your last 200 dictations (audio + text) so words are
-  never lost. Menu bar icon > History.
+  never lost. Menu bar icon > Recent Transcripts.
 - Everything else lives in the menu bar icon.
 
 ## Phase 2 (optional): smart formatting
