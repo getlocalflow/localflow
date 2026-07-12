@@ -3,6 +3,7 @@ States: waveform (recording) / spinner (processing) / check (done) / error.
 All methods must be called on the tk main thread (daemon marshals via
 root.after). Auto-hides 1.6s after done/error."""
 import logging
+import math
 import tkinter as tk
 
 log = logging.getLogger("localflow.hud")
@@ -22,7 +23,7 @@ class WinHUD:
         try:
             self.win.attributes("-alpha", 0.94)
         except tk.TclError:
-            pass
+            log.info("alpha unsupported on this Tk build")
         sw = self.win.winfo_screenwidth()
         sh = self.win.winfo_screenheight()
         self.win.geometry(f"{W}x{H}+{(sw - W) // 2}+{sh - H - PAD_BOTTOM}")
@@ -54,6 +55,7 @@ class WinHUD:
         self._level = max(0.0, min(1.0, rms * 12))
 
     def set_timer(self, seconds, warn):
+        seconds = max(0, seconds)
         m, s = divmod(int(seconds), 60)
         self._timer_text = f"{m}:{s:02d}"
         self._timer_warn = warn
@@ -62,6 +64,7 @@ class WinHUD:
         self._cancel_jobs()
         self.state = "processing"
         self.win.deiconify()
+        self.win.attributes("-topmost", True)
         self._animate()
 
     def show_done(self, word_count):
@@ -73,7 +76,8 @@ class WinHUD:
     def show_error(self, message):
         self._cancel_jobs()
         self.state = "error"
-        self._draw_static(message[:36], fg="#ff8a8a")
+        self._draw_static(message[:36] + ("..." if len(message) > 36 else ""),
+                          fg="#ff8a8a")
         self._hide_job = self.root.after(2600, self.hide)
 
     def hide(self):
@@ -94,6 +98,7 @@ class WinHUD:
         self.canvas.create_text(W // 2, H // 2, text=text, fill=fg,
                                 font=("Segoe UI", 12, "bold"))
         self.win.deiconify()
+        self.win.attributes("-topmost", True)
 
     def _rounded_bg(self):
         r = H // 2
@@ -104,7 +109,6 @@ class WinHUD:
     def _animate(self):
         if self.state not in ("recording", "processing"):
             return
-        import math
         self.canvas.delete("all")
         self._rounded_bg()
         if self.state == "recording":
