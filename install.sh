@@ -12,6 +12,13 @@ step() { printf '\n\033[1;34m==> %s\033[0m\n' "$*"; }
 note() { printf '\033[1m%s\033[0m\n' "$*"; }
 die()  { printf '\n\033[1;31mProblem: %s\033[0m\n%s\n' "$1" "${2:-}"; exit 1; }
 
+# Everything below runs inside main(), called on the LAST line of this file.
+# Under `curl | bash`, bash reads the script from the pipe as it executes;
+# without this wrapper, any child process that reads stdin (Homebrew does)
+# swallows the rest of the script and the install silently stops early.
+# The wrapper forces bash to parse the whole file before running anything.
+main() {
+
 step "Checking your Mac"
 [ "$(uname)" = "Darwin" ] || die "This installer is for macOS only." \
   "On Windows, download LocalFlow-Setup.exe from https://github.com/getlocalflow/localflow/releases and see docs/INSTALL-WINDOWS.md."
@@ -33,7 +40,7 @@ if ! command -v brew >/dev/null 2>&1; then
   note "Homebrew is not installed. It is the standard, safe way to install"
   note "developer tools on a Mac (https://brew.sh). Installing it now."
   note "You may be asked for your Mac login password. That is normal."
-  NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" \
+  NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" </dev/null \
     || die "Homebrew installation failed." "Visit https://brew.sh, follow its one-line install instructions, then re-run this installer."
   eval "$(/opt/homebrew/bin/brew shellenv 2>/dev/null || /usr/local/bin/brew shellenv)"
 fi
@@ -48,7 +55,7 @@ for cand in "$(brew --prefix)/bin/python3" python3; do
 done
 if [ -z "$PY" ]; then
   note "Installing Python (one-time, ~1 minute)."
-  brew install python || die "Could not install Python." "Run 'brew doctor' to see what is wrong with Homebrew, then re-run this installer."
+  brew install python </dev/null || die "Could not install Python." "Run 'brew doctor' to see what is wrong with Homebrew, then re-run this installer."
   PY="$(brew --prefix)/bin/python3"
 fi
 note "Using Python: $PY"
@@ -105,3 +112,6 @@ note "When the checkmarks are green: press Ctrl+Option+Cmd+D, speak,"
 note "press it again, and your words appear wherever your cursor is."
 note ""
 note "Full guide: $DIR/docs/INSTALL-MAC.md"
+
+}
+main "$@"
