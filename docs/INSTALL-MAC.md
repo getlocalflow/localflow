@@ -88,6 +88,17 @@ Settings", turn ON the switch in System Settings.
 
 ![Input Monitoring](img/input-monitoring.png)
 
+**Do not see a Python entry in the list?** On some Macs it does not appear
+by itself. Add it by hand (1 minute):
+
+1. Click the small **+** button under the list of apps.
+2. In the file window that opens, press **Cmd+Shift+G**, paste this
+   exactly, and press Return:
+   `/opt/homebrew/opt/python@3.14/Frameworks/Python.framework/Versions/3.14/Resources/Python.app`
+   (On an Intel Mac, start the path with `/usr/local/opt/` instead of
+   `/opt/homebrew/opt/`.)
+3. Click **Open**. "Python" appears in the list: turn its switch ON.
+
 LocalFlow needs a quick restart to notice this one. Click the LocalFlow
 icon in the menu bar (it shows ⚠️ right now; after this step it becomes
 🎤) and choose Quit LocalFlow. Wait about 10 seconds. LocalFlow starts
@@ -149,6 +160,7 @@ Now that button starts and stops dictation with one thumb click.
 | What you see | What it means | Fix |
 |---|---|---|
 | Pressing the shortcut does nothing, no pill | Input Monitoring permission is missing | Click the LocalFlow menu bar icon (🎤 or ⚠️) > Fix Permissions…, grant Input Monitoring, then quit LocalFlow from the 🎤 menu (it restarts by itself in a few seconds) |
+| Input Monitoring list has no Python entry to turn on | macOS did not register it automatically | Use the + button under the list and add the Python app by path; see the "Do not see a Python entry" box in Step 6 above |
 | Pill appears but no text is typed | Accessibility permission is missing | Click the menu bar 🎤 icon > Fix Permissions… and grant Accessibility. Then click 🎤 > Copy Last Transcript and press Cmd+V to paste what you said. |
 | Pill says it cannot hear you | Wrong microphone selected | System Settings > Sound > Input: pick the mic you want, speak, watch the level meter move |
 | "Transcription failed" | The model hiccuped; your audio was saved | Menu bar 🎤 > Retry Last Recording |
